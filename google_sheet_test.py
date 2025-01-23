@@ -1,37 +1,48 @@
-from google.oauth2 import service_account
+import os
+import json
 import gspread
 import pandas as pd
-import os
+from google.oauth2 import service_account
+import streamlit as st
 
 def get_sheet_data():
-    # Define required scopes for accessing Google Sheets
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
+    try:
+        # Define required scopes for accessing Google Sheets
+        scope = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
 
-    # Load credentials from the environment variable
-    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if not credentials_path:
-        raise EnvironmentError("Environment variable 'GOOGLE_APPLICATION_CREDENTIALS' is not set.")
-    
-    # Load credentials with the specified scope
-    credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scope)
+        # Check if running in Streamlit Cloud (remote) or locally
+        if "STREAMLIT_ENV" in os.environ:  # Custom check for Streamlit Cloud
+            st.write("🔄 Running on Streamlit Cloud...")
+            # Load credentials from Streamlit secrets
+            credentials_info = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
+            credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=scope)
+        else:
+            st.write("🔄 Running locally...")
+            # Load credentials from the environment variable
+            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if not credentials_path:
+                raise EnvironmentError("Environment variable 'GOOGLE_APPLICATION_CREDENTIALS' is not set.")
+            credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scope)
 
-    # Authorize the Google Sheets client
-    client = gspread.authorize(credentials)
+        # Authenticate with Google Sheets
+        client = gspread.authorize(credentials)
 
-    # Open the specified Google Sheet and access the first worksheet
-    sheet = client.open("LMS").sheet1  # Replace "LMS" with your Sheet name
+        # Open the Google Sheet and fetch data
+        sheet = client.open("LMS").sheet1  # Replace "LMS" with your Google Sheet name
+        data = sheet.get_all_records()
 
-    # Fetch all records as a list of dictionaries
-    data = sheet.get_all_records()
+        # Convert to Pandas DataFrame
+        return pd.DataFrame(data)
 
-    # Convert the data into a Pandas DataFrame for easier handling
-    df = pd.DataFrame(data)
-    return df
+    except Exception as e:
+        st.error(f"Failed to fetch data: {e}")
+        return None
 
+# For testing
 if __name__ == "__main__":
-    # Fetch and print the data from the sheet (for local testing)
     df = get_sheet_data()
-    print(df)
+    if df is not None:
+        print(df)

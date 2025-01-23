@@ -38,7 +38,11 @@ st.markdown("""
         background-color: #ffffff;
         margin: 0.25rem 0;
     }
-    
+    iframe {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: 16/9;  /* Optional: Use appropriate aspect ratio */
+    }
     /* Quiz expander styling */
     .streamlit-expanderHeader {
         background-color: #f8f9fa;
@@ -97,7 +101,7 @@ if st.session_state.sidebar_visible:
 # Main content
 if st.session_state.selected_topic:
     filtered_data = sheet_data[sheet_data["Topic"] == st.session_state.selected_topic]
-    st.title(f"Subtopics for {st.session_state.selected_topic}")
+    st.title(f"{st.session_state.selected_topic}")
     
     # Create horizontal buttons for subtopics
     subtopics = filtered_data["Subtopic"].unique()
@@ -128,7 +132,7 @@ if st.session_state.selected_topic:
             # Video section with error handling
             if pd.notna(video_link) and video_link.strip():
                 try:
-                    st.components.v1.html(video_link, height=450)
+                    st.components.v1.html(video_link, height=400)
                 except Exception as e:
                     st.error(f"Error loading video: {str(e)}")
             else:
