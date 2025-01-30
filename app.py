@@ -23,15 +23,9 @@ if "user_info" not in st.session_state:
 if "oauth_state" not in st.session_state:
     st.session_state.oauth_state = None
 
+# ✅ Modified Login Function to Open in a Pop-Up
 def microsoft_login():
     try:
-        oauth = OAuth2Session(
-            client_id=AZURE_CONFIG["client_id"],
-            client_secret=AZURE_CONFIG["client_secret"],
-            scope=AZURE_CONFIG["scope"],
-            redirect_uri=AZURE_CONFIG["redirect_uri"]
-        )
-
         auth_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/authorize" \
                    f"?client_id={AZURE_CONFIG['client_id']}" \
                    f"&response_type=code" \
@@ -40,22 +34,35 @@ def microsoft_login():
                    f"&state={st.session_state.oauth_state}" \
                    f"&prompt=select_account"
 
-        st.markdown(f'''
-            <a href="{auth_url}" target="_self">
-                <button style="
-                    background-color: #2F2F2F;
-                    color: white;
-                    padding: 8px 16px;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    width: 100%;
-                    margin: 4px 0;
-                ">
-                    Login with Microsoft
-                </button>
-            </a>
-        ''', unsafe_allow_html=True)
+        # JavaScript to open login in a pop-up
+        js_code = f"""
+        <script>
+        function openLoginPopup() {{
+            var popup = window.open("{auth_url}", "Microsoft Login", "width=500,height=600");
+            var checkPopup = setInterval(function() {{
+                if (!popup || popup.closed) {{
+                    clearInterval(checkPopup);
+                    window.location.reload();
+                }}
+            }}, 1000);
+        }}
+        </script>
+        <button onclick="openLoginPopup()" style="
+            background-color: #2F2F2F;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin: 4px 0;
+        ">
+            Login with Microsoft
+        </button>
+        """
+        
+        st.markdown(js_code, unsafe_allow_html=True)
+
     except Exception as e:
         st.error(f"Login failed: {str(e)}")
 
