@@ -32,14 +32,16 @@ def microsoft_login():
             redirect_uri=AZURE_CONFIG["redirect_uri"]
         )
 
-        auth_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/authorize"
-        token_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/token"
-
-        authorization_url, state = oauth.create_authorization_url(auth_url)
-        st.session_state.oauth_state = state
+        auth_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/authorize" \
+                   f"?client_id={AZURE_CONFIG['client_id']}" \
+                   f"&response_type=code" \
+                   f"&redirect_uri={AZURE_CONFIG['redirect_uri']}" \
+                   f"&scope={' '.join(AZURE_CONFIG['scope'])}" \
+                   f"&state={st.session_state.oauth_state}" \
+                   f"&prompt=select_account"
 
         st.markdown(f'''
-            <a href="{authorization_url}" target="_self">
+            <a href="{auth_url}" target="_self">
                 <button style="
                     background-color: #2F2F2F;
                     color: white;
@@ -123,7 +125,7 @@ if st.session_state.selected_topic:
 
             if pd.notna(video_link) and video_link.strip():
                 try:
-                    st.components.v1.html(video_link, height=500)
+                    st.components.v1.html(video_link, height=480)
                 except Exception as e:
                     st.error(f"Error loading video: {str(e)}")
             else:
