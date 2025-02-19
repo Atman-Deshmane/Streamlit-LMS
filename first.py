@@ -1,21 +1,63 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 import streamlit as st
+import secrets  # ✅ Generate random state value
 
-# Title of the app
-st.title("Physics: The Art and Science of Thinking clearly")
+# Ensure Azure Config is defined
+AZURE_CONFIG = {
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret",
+    "authority": "https://login.microsoftonline.com/common",
+    "redirect_uri": "https://physiks.streamlit.app/",
+    "scope": ["openid", "profile", "email"]
+}
 
-# Instructions for users
-st.write("Let's get started with the basics, shall we?")
+# ✅ Ensure session state variables are initialized
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "oauth_state" not in st.session_state or st.session_state.oauth_state is None:
+    st.session_state.oauth_state = secrets.token_urlsafe(16)  # ✅ Generate a new state value
 
-# Embed lecture with responsive design
-st.components.v1.html(
-    """
-<div style="max-width: 640px"><div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;"><iframe src="https://guidetoiit-my.sharepoint.com/personal/atmandeshmane_guidetoiit_onmicrosoft_com/_layouts/15/embed.aspx?UniqueId=9db68098-d664-4a99-a24c-6e5e82c90b8b&embed=%7B%22ust%22%3Atrue%2C%22hv%22%3A%22CopyEmbedCode%22%7D&referrer=StreamWebApp&referrerScenario=EmbedDialog.Create" width="640" height="360" frameborder="0" scrolling="no" allowfullscreen title="Vectors Part 1.mp4" style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; max-width: 100%;"></iframe></div></div>    """,
-    height=360,
-)
+def microsoft_login():
+    try:
+        auth_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/authorize" \
+                   f"?client_id={AZURE_CONFIG['client_id']}" \
+                   f"&response_type=code" \
+                   f"&redirect_uri={AZURE_CONFIG['redirect_uri']}" \
+                   f"&scope={' '.join(AZURE_CONFIG['scope'])}" \
+                   f"&state={st.session_state.oauth_state}" \
+                   f"&prompt=select_account"
 
+        # ✅ **Updated button text to "Login to Save Progress"**
+        st.markdown(f'''
+            <a href="{auth_url}" target="_blank">
+                <button style="
+                    background-color: #2F2F2F;
+                    color: white;
+                    padding: 8px 16px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    width: 100%;
+                    margin: 4px 0;
+                ">
+                    Login to Save Progress
+                </button>
+            </a>
+        ''', unsafe_allow_html=True)
+
+        # ✅ **Show the URL in Streamlit to manually test**
+        st.write("🔗 **If the button doesn’t work, copy-paste this:**")
+        st.code(auth_url, language="plaintext")  # ✅ Shows the link to test
+
+    except Exception as e:
+        st.error(f"Login failed: {str(e)}")
+
+# ✅ **Debug Info in Sidebar**
+with st.sidebar:
+    st.write("### Debug Info 🐛")
+    st.write(f"Authenticated: {st.session_state.authenticated}")  # ✅ Now properly initialized
+    st.write(f"OAuth State: {st.session_state.oauth_state}")  # ✅ Debug: Show OAuth state
+
+    # ✅ **Ensure login button is visible**
+    if not st.session_state.authenticated:
+        st.write("### Save Your Progress")
+        microsoft_login()
