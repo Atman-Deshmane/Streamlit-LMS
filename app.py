@@ -15,15 +15,17 @@ AZURE_CONFIG = {
     "scope": ["openid", "profile", "email"]
 }
 
-# Initialize session state for authentication
+# Initialize session state for authentication and progress tracking
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
 if "oauth_state" not in st.session_state:
     st.session_state.oauth_state = None
+if "subtopic_status" not in st.session_state:
+    st.session_state.subtopic_status = {}
 
-# ✅ Modified Login Function to Open in a Pop-Up
+# ✅ Login Function to Open in a Pop-Up
 def microsoft_login():
     try:
         auth_url = f"{AZURE_CONFIG['authority']}/oauth2/v2.0/authorize" \
@@ -104,31 +106,47 @@ if st.session_state.sidebar_visible:
             if st.button(topic, key=f"topic_{topic}", use_container_width=True):
                 st.session_state.selected_topic = topic
 
+# ✅ Function to Mark/Unmark Subtopics as Done (No Refresh)
+def toggle_subtopic_status(subtopic):
+    """Marks a subtopic as done or undone without reloading the app."""
+    if subtopic in st.session_state.subtopic_status:
+        del st.session_state.subtopic_status[subtopic]  # Remove from completed list (Undo)
+    else:
+        st.session_state.subtopic_status[subtopic] = True  # Mark as Done
+
+# Main content - Display subtopics
 if st.session_state.selected_topic:
     filtered_data = sheet_data[sheet_data["Topic"] == st.session_state.selected_topic]
     st.title(f"{st.session_state.selected_topic}")
-
-    subtopics = filtered_data["Subtopic"].unique()
     st.write("### Choose a subtopic to learn:")
 
+    subtopics = filtered_data["Subtopic"].unique()
     cols = st.columns(min(3, len(subtopics)))
-    selected_subtopic = None
 
     for idx, subtopic in enumerate(subtopics):
         col_idx = idx % 3
-        with cols[col_idx]:
-            if st.button(subtopic, key=f"subtopic_{idx}", use_container_width=True):
-                selected_subtopic = subtopic
+        is_done = st.session_state.subtopic_status.get(subtopic, False)
 
-    if selected_subtopic:
-        subtopic_data = filtered_data[filtered_data["Subtopic"] == selected_subtopic]
+        with cols[col_idx]:
+            button_color = "green" if is_done else "#2F2F2F"
+
+            if st.button(subtopic, key=f"subtopic_{idx}", use_container_width=True):
+                st.session_state.selected_subtopic = subtopic
+
+            # ✅ Toggle "Mark as Done" / "Undo" without reloading
+            button_text = "✅ Mark as Done" if not is_done else "🔄 Undo"
+            if st.button(button_text, key=f"toggle_{idx}", use_container_width=True):
+                toggle_subtopic_status(subtopic)  # Toggle done/undo status
+
+    if "selected_subtopic" in st.session_state:
+        subtopic_data = filtered_data[filtered_data["Subtopic"] == st.session_state.selected_subtopic]
 
         for index, row in subtopic_data.iterrows():
             video_link = row["Video"]
             quiz_link = row["Quiz"]
             sensai_link = row["SensAI"]
 
-            st.subheader(f"Module: {selected_subtopic}")
+            st.subheader(f"Module: {st.session_state.selected_subtopic}")
 
             if pd.notna(video_link) and video_link.strip():
                 try:
