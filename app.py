@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import json
 import secrets  # ✅ Generate random OAuth state value
+import os  # ✅ Ensure 'os' is imported
 from google_sheet_test import get_sheet_data
-from pathlib import Path 
+from pathlib import Path  # ✅ Ensure 'Path' is imported
 
 # ✅ Page configuration
 st.set_page_config(page_title="Learn Page", layout="wide")
@@ -100,6 +101,16 @@ def fetch_data():
 
 sheet_data = fetch_data()
 
+# ✅ Debugging: Print Google Sheets column names
+st.write("🔍 Debug: Columns in Google Sheet:", sheet_data.columns.tolist())
+
+# ✅ Check if 'Topic' column exists
+if "Topic" in sheet_data.columns:
+    topics = sheet_data["Topic"].unique()
+else:
+    st.error("❌ ERROR: 'Topic' column is missing in the Google Sheet!")
+    topics = []  # Empty list to prevent crashes
+
 # ✅ Sidebar Topics
 if "sidebar_visible" not in st.session_state:
     st.session_state.sidebar_visible = True
@@ -109,7 +120,6 @@ if "selected_topic" not in st.session_state:
 if st.session_state.sidebar_visible:
     with st.sidebar:
         st.title("Topics")
-        topics = sheet_data["Topic"].unique()
         for topic in topics:
             if st.button(topic, key=f"topic_{topic}", use_container_width=True):
                 st.session_state.selected_topic = topic
