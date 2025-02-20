@@ -1,60 +1,58 @@
-import gspread
-from google.oauth2 import service_account
 import os
+import gspread
 import pandas as pd
+from google.oauth2 import service_account
 import streamlit as st
 import time
-
-st.write("🔍 Checking GOOGLE_APPLICATION_CREDENTIALS:", os.getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-
-# Check if credentials are available
-credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-if not credentials_path:
-    if "GOOGLE_APPLICATION_CREDENTIALS" in st.secrets:
-        credentials_path = "/tmp/credentials.json"
-        with open(credentials_path, "w") as f:
-            f.write(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-        st.success("✅ Credentials loaded from Streamlit Secrets!")
-    else:
-        st.error("❌ No credentials found! Set GOOGLE_APPLICATION_CREDENTIALS in your environment or Streamlit Secrets.")
-
-@st.cache_data  # Caches the fetched data, preventing repeated slow API calls
-def fetch_google_sheet_data():
+from pathlib import Path
+def get_sheet_data():
     try:
-        start_time = time.time()
-        
-        # Authenticate using credentials
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scope)
-        client = gspread.authorize(credentials)
+        scope = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
 
-        elapsed_time = time.time() - start_time
-        st.write(f"✅ Authentication completed in {elapsed_time:.2f} seconds")
+        running_in_cloud = "STREAMLIT_ENV" in os.environ
 
-        # Open Google Sheet
-        sheet = client.open("LMS").sheet1  # ✅ Ensure sheet name is correct
-        data = sheet.get_all_records()
+        if running_in_cloud:
+            st.write("✅ Running on Streamlit Cloud...")
+            if "GOOGLE_APPLICATION_CREDENTIALS" not in st.secrets:
+                st.error("❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit Cloud secrets!")
+                return pd.DataFrame()
 
-        elapsed_time = time.time() - start_time
-        st.write(f"✅ Fetched data in {elapsed_time:.2f} seconds")
+            credentials_info = dict(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
+            credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=scope)
 
-        if data:
-            df = pd.DataFrame(data)
-            return df
         else:
-            st.error("❌ ERROR: Google Sheets returned an empty response.")
-            return pd.DataFrame()  # Return an empty DataFrame
+            st.write("💻 Running Locally...")
+            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            
+            if not credentials_path:
+                st.error("❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is missing!")
+                return pd.DataFrame()
+
+            if "google_credentials" not in st.session_state:
+                st.session_state.google_credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scope)
+
+            credentials = st.session_state.google_credentials
+
+        client = gspread.authorize(credentials)
+        sheet = client.open("LMS").sheet1
+
+        # **DEBUG TIMING**
+        start = time.time()
+        data = sheet.get_all_records()
+        end = time.time()
+
+        st.write(f"✅ Data fetched in {end - start:.2f} seconds")
+
+        return pd.DataFrame(data)
 
     except Exception as e:
         st.error(f"❌ ERROR: {str(e)}")
         return pd.DataFrame()
 
-# Fetch data
-df = fetch_google_sheet_data()
+df = get_sheet_data()
 
-# Display data if available
 if not df.empty:
-    st.write("✅ Google Sheets Data:")
     st.dataframe(df)
