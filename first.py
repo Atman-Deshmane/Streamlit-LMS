@@ -1,58 +1,91 @@
 import os
+import time
+import json
 import gspread
 import pandas as pd
 from google.oauth2 import service_account
 import streamlit as st
-import time
 from pathlib import Path
-def get_sheet_data():
+
+def get_credentials():
+    """Get credentials without caching"""
     try:
         scope = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
-
-        running_in_cloud = "STREAMLIT_ENV" in os.environ
-
-        if running_in_cloud:
-            st.write("✅ Running on Streamlit Cloud...")
-            if "GOOGLE_APPLICATION_CREDENTIALS" not in st.secrets:
-                st.error("❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS missing in Streamlit Cloud secrets!")
-                return pd.DataFrame()
-
-            credentials_info = dict(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
-            credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=scope)
-
+        
+        local_creds_path = "/Users/atmandeshmane/Documents/physics-foundation-streamlit-5282814e8533.json"
+        
+        if os.path.exists(local_creds_path):
+            credentials = service_account.Credentials.from_service_account_file(
+                local_creds_path,
+                scopes=scope
+            )
+            st.success("✅ Credentials loaded")
+            return credentials
         else:
-            st.write("💻 Running Locally...")
-            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            
-            if not credentials_path:
-                st.error("❌ ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is missing!")
-                return pd.DataFrame()
-
-            if "google_credentials" not in st.session_state:
-                st.session_state.google_credentials = service_account.Credentials.from_service_account_file(credentials_path, scopes=scope)
-
-            credentials = st.session_state.google_credentials
-
-        client = gspread.authorize(credentials)
-        sheet = client.open("LMS").sheet1
-
-        # **DEBUG TIMING**
-        start = time.time()
-        data = sheet.get_all_records()
-        end = time.time()
-
-        st.write(f"✅ Data fetched in {end - start:.2f} seconds")
-
-        return pd.DataFrame(data)
-
+            st.error("❌ Credentials file not found")
+            return None
     except Exception as e:
-        st.error(f"❌ ERROR: {str(e)}")
-        return pd.DataFrame()
+        st.error(f"❌ Authentication error: {str(e)}")
+        return None
 
-df = get_sheet_data()
+@st.cache_resource
+def get_client(_credentials):
+    """Get cached client connection"""
+    try:
+        with st.spinner("🔄 Connecting to Google API..."):
+            start = time.time()
+            client = gspread.authorize(_credentials)
+            auth_time = time.time() - start
+            st.success(f"✅ Connected in {auth_time:.2f}s")
+            return client
+    except Exception as e:
+        st.error(f"❌ Connection error: {str(e)}")
+        return None
 
-if not df.empty:
-    st.dataframe(df)
+@st.cache_data(ttl=3600)
+def get_sheet_data(_client):
+    """Get cached sheet data"""
+    try:
+        with st.spinner("🔄 Accessing sheet..."):
+            start = time.time()
+            sheet = _client.open("LMS").sheet1
+            values = sheet.get_values()
+            fetch_time = time.time() - start
+            st.success(f"✅ Data fetched in {fetch_time:.2f}s")
+            return values, fetch_time
+    except Exception as e:
+        st.error(f"❌ Sheet access error: {str(e)}")
+        return None, None
+
+# Main debug interface
+st.title("🔍 Google Sheets Integration Debug")
+
+if st.button("Run Debug Tests", type="primary"):
+    # Step 1: Get credentials
+    credentials = get_credentials()
+    
+    if credentials:
+        # Step 2: Get cached client
+        client = get_client(credentials)
+        
+        if client:
+            # Step 3: Get cached data
+            values, fetch_time = get_sheet_data(client)
+            
+            if values:
+                # Data preview
+                df = pd.DataFrame(values[1:], columns=values[0])
+                st.write(f"📊 Found {len(df)} rows and {len(df.columns)} columns")
+                st.dataframe(df.head())
+                
+                # Performance metric
+                st.info(f"⏱️ Total fetch time: {fetch_time:.2f}s")
+
+# System info
+with st.expander("System Information"):
+    st.write(f"- Python version: {pd.__version__}")
+    st.write(f"- Working directory: {os.getcwd()}")
+    st.write(f"- Streamlit version: {st.__version__}")
