@@ -33,7 +33,6 @@ def get_sheet_data(sheet_name="Ayushkaari", worksheet_name="Sheet1"):
                 credentials_path, 
                 scopes=scope
             )
-            st.write("💻 Using local credentials...")
 
         # Common authentication logic
         client = gspread.authorize(credentials)
