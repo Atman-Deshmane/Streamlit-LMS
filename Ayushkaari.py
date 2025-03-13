@@ -22,8 +22,14 @@ st.set_page_config(
     page_icon="✨"  # Temporary icon, will be replaced with logo
 )
 
-# Define logo URL - using the provided URL
-LOGO_URL = "https://assets.grok.com/users/4e4a32d1-260f-4808-b949-13b34b80fa83/yOir8l0r1u7F8UVC-generated_image.jpg"
+# Define logo URL - with a more reliable fallback for cloud deployment
+# Primary URL from original source
+LOGO_URL_PRIMARY = "https://assets.grok.com/users/4e4a32d1-260f-4808-b949-13b34b80fa83/yOir8l0r1u7F8UVC-generated_image.jpg"
+# Backup URL from a more publicly accessible source
+LOGO_URL_BACKUP = "https://raw.githubusercontent.com/Atman-Deshmane/Streamlit-LMS/main/assets/ministry_of_magic_logo.jpg"
+
+# Use the primary URL by default, but we'll add fallback logic
+LOGO_URL = LOGO_URL_PRIMARY
 
 # Modern CSS for both light and dark modes
 st.markdown("""
@@ -346,17 +352,36 @@ if st.session_state.sidebar_visible:
         # Add logo and title
         st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
         try:
-            response = requests.get(LOGO_URL)
+            # Try the primary URL first
+            response = requests.get(LOGO_URL, timeout=3)
+            logo_loaded = False
+            
             if response.status_code == 200:
-                img = Image.open(BytesIO(response.content))
-                
-                # Calculate proper dimensions while maintaining aspect ratio
-                # Make the image larger to fill the sidebar width better
-                img_width, img_height = img.size
-                aspect_ratio = img_width / img_height
-                
+                try:
+                    img = Image.open(BytesIO(response.content))
+                    logo_loaded = True
+                except Exception:
+                    # If we can't process the image, try the backup URL
+                    try:
+                        response = requests.get(LOGO_URL_BACKUP, timeout=3)
+                        if response.status_code == 200:
+                            img = Image.open(BytesIO(response.content))
+                            logo_loaded = True
+                    except Exception:
+                        logo_loaded = False
+            else:
+                # If primary URL fails, try the backup URL
+                try:
+                    response = requests.get(LOGO_URL_BACKUP, timeout=3)
+                    if response.status_code == 200:
+                        img = Image.open(BytesIO(response.content))
+                        logo_loaded = True
+                except Exception:
+                    logo_loaded = False
+            
+            if logo_loaded:
                 # Set a larger target width for the sidebar image
-                target_width = 280  # Increased from 250
+                target_width = 280
                 
                 # Use proper HTML/CSS to ensure the image is centered
                 st.markdown(f"""
@@ -386,7 +411,7 @@ if st.session_state.sidebar_visible:
                     unsafe_allow_html=True,
                 )
             else:
-                # Fallback text-based logo
+                # Fallback to embedded sparkles icon if both URLs fail
                 st.markdown("""
                     <div style="
                         width: 180px;
