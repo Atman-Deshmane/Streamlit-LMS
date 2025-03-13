@@ -14,7 +14,7 @@ AZURE_CONFIG = {
     "client_id": "44618fbb-163b-49c6-905e-302323aa3026",
     "client_secret": "f2d6f927-6306-4789-ac1c-c6ffe5f16804",
     "authority": "https://login.microsoftonline.com/common",
-    "redirect_uri": "https://physiks.streamlit.app/",
+    "redirect_uri": "http://localhost:8501/" if os.environ.get("STREAMLIT_SERVER_PORT") == "8501" else "https://physiks.streamlit.app/",
     "scope": ["openid", "profile", "email"]
 }
 
