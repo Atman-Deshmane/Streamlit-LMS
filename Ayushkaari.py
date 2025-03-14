@@ -7,6 +7,7 @@ import requests
 from PIL import Image
 from io import BytesIO
 import base64
+import os
 
 # ✅ Page configuration
 st.set_page_config(
@@ -22,14 +23,16 @@ st.set_page_config(
     page_icon="✨"  # Temporary icon, will be replaced with logo
 )
 
-# Define logo URL - with a more reliable fallback for cloud deployment
-# Primary URL directly from GitHub (most reliable for cloud deployment)
-LOGO_URL_PRIMARY = "https://raw.githubusercontent.com/Atman-Deshmane/Streamlit-LMS/main/assets/ministry_of_magic_logo.jpg"
+# Define logo paths with fallbacks
+# Local file path - use this first when running locally
+LOGO_LOCAL_PATH = "assets/ministry_of_magic_logo.jpg"
+# GitHub URL - more reliable for cloud deployment
+LOGO_URL_GITHUB = "https://raw.githubusercontent.com/Atman-Deshmane/Streamlit-LMS/main/assets/ministry_of_magic_logo.jpg"
 # Backup URL from original source
 LOGO_URL_BACKUP = "https://assets.grok.com/users/4e4a32d1-260f-4808-b949-13b34b80fa83/yOir8l0r1u7F8UVC-generated_image.jpg"
 
 # Use the primary URL by default
-LOGO_URL = LOGO_URL_PRIMARY
+LOGO_URL = LOGO_URL_GITHUB
 
 # Modern CSS for both light and dark modes
 st.markdown("""
@@ -351,35 +354,18 @@ if st.session_state.sidebar_visible:
     with st.sidebar:
         # Add logo and title
         st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
+        logo_loaded = False
+        
+        # Try loading from local file first
         try:
-            # Try the primary URL first with a longer timeout for cloud environments
-            response = requests.get(LOGO_URL, timeout=10, stream=True)
-            logo_loaded = False
-            
-            if response.status_code == 200:
-                try:
-                    img = Image.open(BytesIO(response.content))
-                    logo_loaded = True
-                except Exception:
-                    # If we can't process the image, try the backup URL
-                    try:
-                        response = requests.get(LOGO_URL_BACKUP, timeout=10, stream=True)
-                        if response.status_code == 200:
-                            img = Image.open(BytesIO(response.content))
-                            logo_loaded = True
-                    except Exception:
-                        logo_loaded = False
-            else:
-                # If primary URL fails, try the backup URL
-                try:
-                    response = requests.get(LOGO_URL_BACKUP, timeout=10, stream=True)
-                    if response.status_code == 200:
-                        img = Image.open(BytesIO(response.content))
-                        logo_loaded = True
-                except Exception:
-                    logo_loaded = False
-            
-            if logo_loaded:
+            # Check if local file exists
+            if os.path.exists(LOGO_LOCAL_PATH):
+                img = Image.open(LOGO_LOCAL_PATH)
+                # Convert the image to bytes for display
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                
                 # Set a larger target width for the sidebar image
                 target_width = 320
                 
@@ -387,48 +373,102 @@ if st.session_state.sidebar_visible:
                 st.markdown(f"""
                     <div class="sidebar-logo">
                         <div style="text-align: center; width: 100%;">
-                            <img src="data:image/jpeg;base64,{base64.b64encode(BytesIO(response.content).getvalue()).decode()}" 
+                            <img src="data:image/jpeg;base64,{img_str}" 
                                  width="{target_width}" 
                                  style="margin: 0 auto; display: block;">
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Set favicon dynamically
-                favicon = BytesIO(response.content)
-                encoded = base64.b64encode(favicon.getvalue()).decode()
-                st.markdown(
-                    f"""
-                    <style>
-                    [data-testid="stSidebarNav"] {{
-                        background-image: url("data:image/png;base64,{encoded}");
-                        background-repeat: no-repeat;
-                        background-position: 20px 20px;
-                        background-size: 30px;
-                    }}
-                    </style>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                logo_loaded = True
             else:
-                # Fallback to embedded sparkles icon if both URLs fail
-                st.markdown("""
-                    <div style="
-                        width: 180px;
-                        height: 180px;
-                        background: rgba(128, 128, 128, 0.1);
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        margin: 0 auto;
-                        font-size: 3.5rem;
-                    ">
-                        ✨
-                    </div>
-                """, unsafe_allow_html=True)
+                # If local file doesn't exist, try URLs
+                raise FileNotFoundError("Local logo file not found")
+                
         except Exception as e:
-            # Fallback text-based logo
+            # If local file fails, try the GitHub URL
+            try:
+                response = requests.get(LOGO_URL_GITHUB, timeout=10, stream=True)
+                if response.status_code == 200:
+                    try:
+                        img = Image.open(BytesIO(response.content))
+                        # Convert the image to bytes for display
+                        buffered = BytesIO(response.content)
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                        
+                        # Set a larger target width for the sidebar image
+                        target_width = 320
+                        
+                        # Use proper HTML/CSS to ensure the image is centered
+                        st.markdown(f"""
+                            <div class="sidebar-logo">
+                                <div style="text-align: center; width: 100%;">
+                                    <img src="data:image/jpeg;base64,{img_str}" 
+                                         width="{target_width}" 
+                                         style="margin: 0 auto; display: block;">
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        logo_loaded = True
+                    except Exception:
+                        # If GitHub URL fails, try the backup URL
+                        response = requests.get(LOGO_URL_BACKUP, timeout=10, stream=True)
+                        if response.status_code == 200:
+                            img = Image.open(BytesIO(response.content))
+                            # Convert the image to bytes for display
+                            buffered = BytesIO(response.content)
+                            img_str = base64.b64encode(buffered.getvalue()).decode()
+                            
+                            # Set a larger target width for the sidebar image
+                            target_width = 320
+                            
+                            # Use proper HTML/CSS to ensure the image is centered
+                            st.markdown(f"""
+                                <div class="sidebar-logo">
+                                    <div style="text-align: center; width: 100%;">
+                                        <img src="data:image/jpeg;base64,{img_str}" 
+                                             width="{target_width}" 
+                                             style="margin: 0 auto; display: block;">
+                                    </div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                            
+                            logo_loaded = True
+                        else:
+                            logo_loaded = False
+                else:
+                    # If GitHub URL fails, try the backup URL
+                    response = requests.get(LOGO_URL_BACKUP, timeout=10, stream=True)
+                    if response.status_code == 200:
+                        img = Image.open(BytesIO(response.content))
+                        # Convert the image to bytes for display
+                        buffered = BytesIO(response.content)
+                        img_str = base64.b64encode(buffered.getvalue()).decode()
+                        
+                        # Set a larger target width for the sidebar image
+                        target_width = 320
+                        
+                        # Use proper HTML/CSS to ensure the image is centered
+                        st.markdown(f"""
+                            <div class="sidebar-logo">
+                                <div style="text-align: center; width: 100%;">
+                                    <img src="data:image/jpeg;base64,{img_str}" 
+                                         width="{target_width}" 
+                                         style="margin: 0 auto; display: block;">
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        logo_loaded = True
+                    else:
+                        logo_loaded = False
+            except Exception:
+                logo_loaded = False
+                
+        # If all methods fail, display sparkles icon
+        if not logo_loaded:
+            # Fallback to embedded sparkles icon if both URLs fail
             st.markdown("""
                 <div style="
                     width: 180px;
