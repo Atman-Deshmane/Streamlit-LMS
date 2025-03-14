@@ -19,7 +19,6 @@ def get_sheet_data(sheet_name="Ayushkaari", worksheet_name="Sheet1"):
         
         if secrets_path.exists():
             # Load credentials directly from Streamlit secrets and convert to dict
-            st.write("🔄 Running on Streamlit Cloud...")
             credentials_info = dict(st.secrets["GOOGLE_APPLICATION_CREDENTIALS"])
             credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=scope)
         else:
